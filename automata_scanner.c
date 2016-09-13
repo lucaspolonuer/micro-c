@@ -5,12 +5,43 @@
 
 typedef enum {
  INICIO, FIN, LEER, ESCRIBIR, ID, CONSTANTE, PARENIZQUIERDO,
- PARENDERECHO, PUNTOYCOMA, COMA, ASIGNACION, SUMA, RESTA, FDT
+ PARENDERECHO, PUNTOYCOMA, COMA, ASIGNACION, SUMA, RESTA, FDT, ERRORLEXICO
 } TOKEN;
 
 char buffer[TAMLEX];
 
 FILE * in;
+
+
+int estadoFinal(int e){
+	if ( e == 0 || e == 1 || e == 3 || e == 11 || e == 14 ) return 0;
+	return 1;
+}
+
+int verifica(char * cad){
+	int i = 0;
+	while(cad[i] != '\0'){
+		if(cad[i] != 'a' && cad[i] != 'b') return 0;
+		i++;
+	}
+	return 1;
+}
+
+int columna(char c){
+	if ( isalpha(c) ) return 0;
+	if ( isdigit(c) ) return 1;
+	if ( c == '+' ) return 2;
+	if ( c == '-' ) return 3;
+	if ( c == '(' ) return 4;
+	if ( c == ')' ) return 5;
+	if ( c == ',' ) return 6;
+	if ( c == ';' ) return 7;
+	if ( c == ':' ) return 8;
+	if ( c == '=' ) return 9;
+	if ( c == EOF ) return 10;
+	if ( isspace(c) ) return 11;
+	return 12;
+}
 
 TOKEN Scanner(){
 	int tabla[NUMESTADOS][NUMCOLS] = {
@@ -76,49 +107,6 @@ TOKEN Scanner(){
 	return 0;
 }
 
-int estadoFinal(int e){
-	if ( e == 0 || e == 1 || e == 3 || e == 11 || e == 14 ) return 0;
-	return 1;
-}
-
-int verifica(char * cad){
-	int i = 0;
-	while(cad[i] != '\0'){
-		if(cad[i] != 'a' && cad[i] != 'b') return 0;
-		i++;
-	}
-	return 1;
-}
-
-int columna(char c){
-	if ( isalpha(c) ) return 0;
-	if ( isdigit(c) ) return 1;
-	if ( c == '+' ) return 2;
-	if ( c == '-' ) return 3;
-	if ( c == '(' ) return 4;
-	if ( c == ')' ) return 5;
-	if ( c == ',' ) return 6;
-	if ( c == ';' ) return 7;
-	if ( c == ':' ) return 8;
-	if ( c == '=' ) return 9;
-	if ( c == EOF ) return 10;
-	if ( isspace(c) ) return 11;
-	return 12;
-}
-
-int automata(char * s){
-	static int tabla[6][2] = {{1,5}, {5,2}, {3,1}, {5,4}, {5,5}, {3,5}};
-	int estado = 0;
-	char car = *s;
-	while(car != '\0'){
-		estado = tabla[estado][columna(car)];
-		s++;
-		car = *s;
-	}
-	if(estado == 2 || estado == 4) return 1;
-	return 0;
-}
-
 int main(int argc, char * argv[]){
 	if(argc == 1){
 		printf("Debe ingresar una cadena\n");
@@ -128,14 +116,18 @@ int main(int argc, char * argv[]){
 		printf("Debe ingresar solamente un argumento\n");
 		return -2;
 	}
-	/*
-	if(!verifica(argv[1])){
-		printf("La cadena tiene caracteres que no pertenecen al alfabeto\n");
+
+	if(in = fopen(argv[1], "r"));
+	else {
+		printf("No se pudo abrir el archivo\n");
 		return -3;
-	}*/
-	if(automata(argv[1]))
-		printf("La cadena es aceptada por ende pertenece al lenguaje\n");
-	else
-		printf("La cadena NO es aceptada por ende NO pertenece al lenguaje\n");
+	}
+
+	TOKEN result;
+	do{
+		result = Scanner();
+		printf("%d\n", result);
+	}while(result != FDT);
+
 	return 0;
 }
