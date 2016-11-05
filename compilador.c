@@ -239,7 +239,7 @@ void BuscarTipoDeId(char * id, TOKEN * t){
 }
 
 int Chequear(char * id){
-	/* Devuelve si id esta en la TS */
+	/* Devuelve 1 si id esta en la TS */
 	int i = 0;
 	while ( i < tamanioTS ) {
 		if ( !strcmp(id, TS[i].identificador) ) return 1;
@@ -254,7 +254,7 @@ void Colocar(char * id){
 		return;
 	}
 
-	int i = tamanioTS - 1;
+	int i = tamanioTS;
 	if ( i < 999 ) {
 		strcpy(TS[i].identificador, id );
 		TS[i].token = ID;
