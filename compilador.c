@@ -4,7 +4,6 @@
 #define NUMESTADOS 15
 #define NUMCOLS 13
 #define TAMLEX 32+1
-#define TAMNOM 20+1
 
 FILE * in;
 
