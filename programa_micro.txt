@@ -1,1 +1,3 @@
-inicio a := 23; escribir (a, b+2); fin
+inicio 
+escribir(55+22-(25+a));
+fin
