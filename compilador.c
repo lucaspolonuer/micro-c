@@ -5,6 +5,35 @@
 #define NUMCOLS 13
 #define TAMLEX 32+1
 
+/*	---------- Compilador de lenguaje Micro	----------
+
+	Realizado por GRUPO 1, Integrantes :
+	- Polonuer Lucas
+	- Dell 'Arciprete Lucas
+	- Avila Lucas
+	- Baruzzini Brenda
+	Para la materia Sintaxis y Semántica de los Lenguajes
+	a cargo del Profesor -Ricardo Guillermo Barca-
+	en el curso K2002 de UTN FRBA durante el año 2016.
+
+	---------- Compilador de lenguaje Micro	----------
+
+	Basado en el libro de la cátedra, escrito 
+	por Jorge Daniel Muchnik.
+
+	---------- Compilador de lenguaje Micro	----------
+	
+	Como compilar : gcc -ansi compilador.c -o compilador
+		"compilador" puede variar a gusto.
+		
+	Modo de uso : Luego de compilarlo, llamar al archivo
+	"compilador" o cual sea su nombre y pasarle como 
+	primer y único parámetro el nombre del archivo que
+	contiene el programa escrito en lenguaje micro.
+
+	---------- Compilador de lenguaje Micro	----------
+*/
+
 FILE * in;
 
 typedef enum {
@@ -13,9 +42,9 @@ typedef enum {
 
 typedef struct {
 	char identificador[TAMLEX];
-	TOKEN token; /* t=0, 1, 2, 3 Palabra Reservada, t=ID=4 Identificador (ver enum) */
+	TOKEN token; 
 } RegTS;
-
+/* Los registros 0,1,2,3 de la TS son palabras reservadas, a partir de 4 estan los identificadores */
 RegTS TS[1000] = { {"inicio", INICIO}, {"fin", FIN}, {"leer", LEER}, {"escribir", ESCRIBIR} };
 
 char buffer[TAMLEX]; /* en donde se guarda lexema por lexema que vamos leyendo */
@@ -24,10 +53,12 @@ int flagToken = 0; /* variable global que indica si proximoToken debe devolver r
 TOKEN tokenActual;
 
 /* PROTOTIPOS DE FUNCIONES */
-TOKEN Scanner(); // el scanner
+
+TOKEN Scanner(); /* el scanner */
 int columna(char c);
 int estadoFinal(int e);
-void Objetivo(void); // del PAS
+
+void Objetivo(void); /* los PAS */
 void Programa(void);
 void ListaSentencias(void);
 void Sentencia(void);
@@ -37,47 +68,45 @@ void ListaExpresiones(void);
 void Expresion(char * expresion);
 void Primaria(char * s);
 void OperadorAditivo(char * s);
-void GenInfijo(char * e1, char * op, char * e2, char * result);
-void Match(TOKEN t);
-TOKEN ProximoToken();
-void ErrorLexico();
-void ErrorSintactico();
-void Generar(char * co, char * a, char * b, char * c);
+
+void ProcesarId(char * id); /*Rutinas semanticas */
+void ProcesarCte(char * cte);
+void ProcesarOp(char * op);
 void Asignar(char * izq, char * der);
 void Leer(char * in);
 void Escribir(char * out);
 void Terminar(void);
-void Colocar(char * id);
+void GenInfijo(char * e1, char * op, char * e2, char * result);
+
+void Match(TOKEN t); /* func auxiliares */
+TOKEN ProximoToken();
+void ErrorLexico();
+void ErrorSintactico();
+void Generar(char * co, char * a, char * b, char * c);
+
+void Colocar(char * id); /* Manejo de TS */
 int Chequear(char * s);
 void BuscarTipoDeId(char * id, TOKEN * t);
 
 int main(int argc, char * argv[]){
-	/* El main esta incompletisimo, le faltan todas las verificaciones */
-	in = fopen(argv[1], "r");
+	if ( argc == 1 ) {
+		printf("Debe ingresar el nombre del archivo fuente (en lenguaje Micro) en la linea de comandos\n"); 
+		return -1; 
+	}
+	if ( argc != 2 ) {
+		printf("Numero incorrecto de argumentos\n"); 
+		return -2; 
+	}
+	if ( (in = fopen(argv[1], "r") ) == NULL ) {
+		printf("No se pudo abrir archivo fuente\n"); 
+		return -3;
+	}
+
 	Objetivo();
 	fclose(in);
 	return 0;
 }
 
-
-TOKEN ProximoToken() {
-	if ( !flagToken ) {
-		tokenActual = Scanner();
-		if ( tokenActual == ERRORLEXICO ) ErrorLexico();
-		flagToken = 1;
-		/* determinamos si el token es realmente ID o es INICIO, FIN, LEER, ESCRIBIR 
-		   segun como lo encontremos en la TS */
-		if ( tokenActual == ID ) {
-			BuscarTipoDeId(buffer, &tokenActual);
-		}
-	}
-	return tokenActual;
-}
-
-void Match(TOKEN t) {
-	if (t != ProximoToken()) ErrorSintactico();
-	flagToken = 0;
-}
 
 /* PAS - Procedimientos de Analisis Sintactico*/
 
@@ -153,12 +182,11 @@ void ListaIdentificadores(void) {
 }
 
 void Identificador(char * id) {
-	/* <identificador> -> ID */
+	/* <identificador> -> ID #procesar_id */
 		Match(ID);
 
 	/* Guardamos el id en la TS (Colocar verifica que no este) y devolvemos en el parametro pasado por referencia el id leido */	
-	Colocar(buffer);
-	strcpy(id, buffer);
+	ProcesarId(id);
 }
 
 void ListaExpresiones(void) {
@@ -197,11 +225,11 @@ void Primaria(char * s) {
 			case ID : /* <primaria> -> <identificador> */
 				Identificador(s); 
 		break;
-			case CONSTANTE : /* <primaria> -> CONSTANTE */
+			case CONSTANTE : /* <primaria> -> CONSTANTE #procesar_cte */
 				Match(CONSTANTE); 
 
 				/* Guardo en s la constante leida */
-				strcpy(s, buffer);
+				ProcesarCte(s);
 		break;
 			case PARENIZQUIERDO : /* <primaria> -> PARENIZQUIERDO <expresion> PARENDERECHO */
 				Match(PARENIZQUIERDO); 
@@ -213,13 +241,13 @@ void Primaria(char * s) {
 }
 
 void OperadorAditivo(char * s) {
-	/* <operadorAditivo> -> SUMA | RESTA */
+	/* <operadorAditivo> -> SUMA #procesar_op | RESTA #procesar_op */
 	TOKEN t = ProximoToken();
 	if ( t == SUMA || t == RESTA ) {
 		Match(t);
 
 		/* Guardo en s el operador leido */
-		strcpy(s, buffer); 
+			ProcesarOp(s);
 	} else
 		ErrorSintactico();
 }
@@ -263,39 +291,41 @@ void Colocar(char * id){
 	Generar("Declara", id, "Entera", "");
 }
 
+/* RUTINAS SEMANTICAS */
 
-/* FUNCIONES AUXILIARES */
+void ProcesarId(char * id){
+	Colocar(buffer);
+	strcpy(id, buffer);
+}
+
+void ProcesarCte(char * cte){
+	strcpy(cte, buffer);
+}
+
+void ProcesarOp(char * op){
+	strcpy(op, buffer); 
+}
 
 void ErrorLexico() {
-	printf("Error Lexico\n");
+	printf("\n----------ERROR LEXICO----------\n");
 }
 
 void ErrorSintactico() {
-	printf("Error Sintactico\n");
-}
-
-void Leer(char * in) {
-	/* Genera la instruccion para leer */
-	Generar("Read", in, "Entera", "");
-}
-void Escribir(char * out) {
-	/* Genera la instruccion para escribir */
-	Generar("Write", out, "Entera", "");
-}
-
-void Generar(char * co, char * a, char * b, char * c) {
-	/* Produce la salida de la instruccion para la MV por stdout */
-	if(strlen(c) > 0)
-		printf("%s %s%c %s%c %s\n", co, a, ',', b, ',', c);
-	else if(strlen(b) > 0)
-		printf("%s %s%c %s\n", co, a, ',', b);
-	else
-		printf("%s %s\n", co, a);
+	printf("\n----------ERROR SINTACTICO----------\n");
 }
 
 void Asignar(char * izq, char * der){
 	/* Genera la instruccion para la asignacion */
 	Generar("Almacena", der, izq, "");
+}
+
+void Leer(char * in) {
+	/* Genera la instruccion para leer */
+	Generar("Lee", in, "Entera", "");
+}
+void Escribir(char * out) {
+	/* Genera la instruccion para escribir */
+	Generar("Escribe", out, "Entera", "");
 }
 
 void Terminar(void) {
@@ -318,6 +348,37 @@ void GenInfijo(char * e1, char * op, char * e2, char * result){
 	Colocar(cadTemp);
 	Generar(cadOp, e1, e2, cadTemp);
 	strcpy(result, cadTemp);
+}
+
+/* FUNCIONES AUXILIARES */
+
+TOKEN ProximoToken() {
+	if ( !flagToken ) {
+		tokenActual = Scanner();
+		if ( tokenActual == ERRORLEXICO ) ErrorLexico();
+		flagToken = 1;
+		/* determinamos si el token es realmente ID o es INICIO, FIN, LEER, ESCRIBIR 
+		   segun como lo encontremos en la TS */
+		if ( tokenActual == ID ) {
+			BuscarTipoDeId(buffer, &tokenActual);
+		}
+	}
+	return tokenActual;
+}
+
+void Match(TOKEN t) {
+	if (t != ProximoToken()) ErrorSintactico();
+	flagToken = 0;
+}
+
+void Generar(char * co, char * a, char * b, char * c) {
+	/* Produce la salida de la instruccion para la MV por stdout */
+	if(strlen(c) > 0)
+		printf("%s %s%c %s%c %s\n", co, a, ',', b, ',', c);
+	else if(strlen(b) > 0)
+		printf("%s %s%c %s\n", co, a, ',', b);
+	else
+		printf("%s %s\n", co, a);
 }
 
 /* SCANNER */
@@ -379,20 +440,20 @@ TOKEN Scanner(){
 		car = fgetc(in);
 		col = columna(car);
 		estado = tabla[estado][col];
-		if ( col != 11 ) { //si es espacio no lo agrega al buffer
+		if ( col != 11 ) { /*si es espacio no lo agrega al buffer*/
 			buffer[i] = car;
 			i++;
 		}
 	}
 	while ( !estadoFinal(estado) && (estado != 14) );
 
-	buffer[i] = '\0'; //completé la cadena
+	buffer[i] = '\0'; /*completé la cadena*/
 
 	switch ( estado )
 	{
 		case 2 : 
-			if ( col != 11 ){ //si el carácter espureo no es blanco…
-				ungetc(car, in); // lo retorna al flujo
+			if ( col != 11 ){ /*si el caracter espureo no es blanco…*/
+				ungetc(car, in); /* lo retorna al flujo */
 				buffer[i-1] = '\0';
 			}
 			return ID;
