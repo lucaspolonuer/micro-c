@@ -7,11 +7,9 @@
 
 /*	---------- Compilador de lenguaje Micro	----------
 
-	Realizado por GRUPO 1, Integrantes :
-	- Polonuer Lucas
-	- Dell 'Arciprete Lucas
-	- Avila Lucas
-	- Baruzzini Brenda
+	Realizado por Lucas Polonuer.
+	Compilador de lenguaje micro a código de máquina, 
+	simplificado usando solamente cadenas de texto.
 	Para la materia Sintaxis y Semántica de los Lenguajes
 	a cargo del Profesor -Ricardo Guillermo Barca-
 	en el curso K2002 de UTN FRBA durante el año 2016.
@@ -47,12 +45,6 @@ typedef struct {
 /* Los registros 0,1,2,3 de la TS son palabras reservadas, a partir de 4 estan los identificadores */
 RegTS TS[1000] = { {"inicio", INICIO}, {"fin", FIN}, {"leer", LEER}, {"escribir", ESCRIBIR} };
 
-typedef struct{
-	TOKEN clase;
-	char nombre[TAMLEX];
-	int valor;
-	} REG_EXPRESION;
-
 char buffer[TAMLEX]; /* en donde se guarda lexema por lexema que vamos leyendo */
 int tamanioTS = 4; /* variable global que guarda el tamaño de la tabla de simbolos actual */
 int flagToken = 0; /* variable global que indica si proximoToken debe devolver realmente el proximo o devolver el actual porque no se termino de procesar */
@@ -69,20 +61,20 @@ void Programa(void);
 void ListaSentencias(void);
 void Sentencia(void);
 void ListaIdentificadores(void);
-void Identificador(REG_EXPRESION * presul);
+void Identificador(char * s);
 void ListaExpresiones(void);
-void Expresion(REG_EXPRESION * presul);
-void Primaria(REG_EXPRESION * presul);
-void OperadorAditivo(char * op);
+void Expresion(char * expresion);
+void Primaria(char * s);
+void OperadorAditivo(char * s);
 
-REG_EXPRESION ProcesarId(void); /*Rutinas semanticas */
-REG_EXPRESION ProcesarCte(void);
-char * ProcesarOp(void);
-void Asignar(REG_EXPRESION izq, REG_EXPRESION der);
-void Leer(REG_EXPRESION in);
-void Escribir(REG_EXPRESION out);
+void ProcesarId(char * id); /*Rutinas semanticas */
+void ProcesarCte(char * cte);
+void ProcesarOp(char * op);
+void Asignar(char * izq, char * der);
+void Leer(char * in);
+void Escribir(char * out);
 void Terminar(void);
-REG_EXPRESION GenInfijo(REG_EXPRESION e1, char * op, REG_EXPRESION e2);
+void GenInfijo(char * e1, char * op, char * e2, char * result);
 
 void Match(TOKEN t); /* func auxiliares */
 TOKEN ProximoToken();
@@ -145,13 +137,14 @@ void ListaSentencias(void){
 
 void Sentencia(void) {
 	TOKEN tok = ProximoToken();
-	REG_EXPRESION izq, der; /* Lo que va a la izquierda y a la derecha de una asignacion */
+	char izq[TAMLEX]; /* Lo que va a la izquierda de una asignacion */
+	char der[TAMLEX]; /* Lo que va a la... *redoble de tambores*... derecha de una asignacion */
 
 	switch ( tok ) {
 		case ID : /* <sentencia> -> ID := <expresion> #asignar ; */
-			Identificador(&izq);
+			Identificador(izq);
 			Match(ASIGNACION);
-			Expresion(&der);
+			Expresion(der);
 			Asignar(izq, der); /* genera instrucción de asignacion */
 			Match(PUNTOYCOMA);
 	break;
@@ -176,82 +169,83 @@ void Sentencia(void) {
 void ListaIdentificadores(void) {
 	/* <listaIdentificadores> -> <identificador> #leer_id {COMA <identificador> #leer_id} */
 	TOKEN t;
-	REG_EXPRESION reg;
-	Identificador(&reg);
-	Leer(reg);
+	char id[TAMLEX];
+	Identificador(id);
+	Leer(id);
 	for ( t = ProximoToken(); t == COMA; t = ProximoToken() ) {
 		Match(COMA);
-		Identificador(&reg);
-		Leer(reg);
+		Identificador(id);
+		Leer(id);
 	}
 }
 
-void Identificador(REG_EXPRESION * presul) {
+void Identificador(char * id) {
 	/* <identificador> -> ID #procesar_id */
 		Match(ID);
 
 	/* Guardamos el id en la TS (Colocar verifica que no este) y devolvemos en el parametro pasado por referencia el id leido */	
-	*presul = ProcesarId();
+	ProcesarId(id);
 }
 
 void ListaExpresiones(void) {
 	/* <listaExpresiones> -> <expresion> #escribir_exp {COMA <expresion> #escribir_exp} */
 	TOKEN t;
-	REG_EXPRESION expresion; /* En expresion queda una constante o una variable o una variable temporal Temp */
-	Expresion(&expresion); 
+	char expresion[TAMLEX]; /* En expresion queda una constante o una variable o una variable temporal Temp */
+	Expresion(expresion); 
 	Escribir(expresion);
 	for ( t = ProximoToken(); t == COMA; t = ProximoToken() ) {
 		Match(COMA);
-		Expresion(&expresion);
+		Expresion(expresion);
 		Escribir(expresion);
 	}
 }
 
-void Expresion(REG_EXPRESION * presul){
+void Expresion(char * expresion){
 	/* <expresion> -> <primaria> { <operadorAditivo> <primaria> #gen_infijo } */
-	REG_EXPRESION operandoIzq, operandoDer;
+	char operandoIzq[TAMLEX]; 
+	char operandoDer[TAMLEX];
 	char op[TAMLEX];
 	TOKEN t;
-	Primaria(&operandoIzq);
+	Primaria(operandoIzq);
 	for ( t = ProximoToken(); t == SUMA || t == RESTA; t = ProximoToken() ) {
 		OperadorAditivo(op);
-		Primaria(&operandoDer);
-		operandoIzq = GenInfijo(operandoIzq, op, operandoDer);
+		Primaria(operandoDer);
+		GenInfijo(operandoIzq, op, operandoDer, operandoIzq);
 	}
-	*presul = operandoIzq;
+	strcpy(expresion, operandoIzq);
 	/* guardo en expresion lo que haya quedado en operandoIzq, ya sea una variable si habia un solo operando
 	 o la variable temporal de codigo de maquina virtual (Temp&num) si habia mas de un operando y se llamo a GenInfijo*/
 }
 
-void Primaria(REG_EXPRESION * presul) {
+void Primaria(char * s) {
 	TOKEN tok = ProximoToken();
 	switch ( tok ) {
 			case ID : /* <primaria> -> <identificador> */
-				Identificador(presul); 
+				Identificador(s); 
 		break;
 			case CONSTANTE : /* <primaria> -> CONSTANTE #procesar_cte */
 				Match(CONSTANTE); 
 
-				/* Guardo en presul la constante leida */
-				*presul = ProcesarCte();
+				/* Guardo en s la constante leida */
+				ProcesarCte(s);
 		break;
 			case PARENIZQUIERDO : /* <primaria> -> PARENIZQUIERDO <expresion> PARENDERECHO */
 				Match(PARENIZQUIERDO); 
-				Expresion(presul);
+				Expresion(s);
 				Match(PARENDERECHO); 
 		break;
 		default : return;
 	}
 }
 
-void OperadorAditivo(char * op) {
+void OperadorAditivo(char * s) {
 	/* <operadorAditivo> -> SUMA #procesar_op | RESTA #procesar_op */
 	TOKEN t = ProximoToken();
 	if ( t == SUMA || t == RESTA ) {
 		Match(t);
 
 		/* Guardo en s el operador leido */
-			strcpy(op, ProcesarOp());
+			ProcesarOp(s);
 	} else
 		ErrorSintactico();
 }
@@ -297,23 +291,17 @@ void Colocar(char * id){
 
 /* RUTINAS SEMANTICAS */
 
-REG_EXPRESION ProcesarId(void){
+void ProcesarId(char * id){
 	Colocar(buffer);
-	REG_EXPRESION reg;
-	reg.clase = ID;
-	strcpy(reg.nombre, buffer);
-	return reg;
+	strcpy(id, buffer);
 }
 
-REG_EXPRESION ProcesarCte(void){
-	REG_EXPRESION reg;
-	reg.clase = CONSTANTE;
-	strcpy(reg.nombre, buffer);
-	return reg;
+void ProcesarCte(char * cte){
+	strcpy(cte, buffer);
 }
 
-char * ProcesarOp(void){
-	return buffer; 
+void ProcesarOp(char * op){
+	strcpy(op, buffer); 
 }
 
 void ErrorLexico() {
@@ -324,18 +312,18 @@ void ErrorSintactico() {
 	printf("\n----------ERROR SINTACTICO----------\n");
 }
 
-void Asignar(REG_EXPRESION izq, REG_EXPRESION der){
+void Asignar(char * izq, char * der){
 	/* Genera la instruccion para la asignacion */
-	Generar("Almacena", der.nombre, izq.nombre, "");
+	Generar("Almacena", der, izq, "");
 }
 
-void Leer(REG_EXPRESION in) {
+void Leer(char * in) {
 	/* Genera la instruccion para leer */
-	Generar("Lee", in.nombre, "Entera", "");
+	Generar("Lee", in, "Entera", "");
 }
-void Escribir(REG_EXPRESION out) {
+void Escribir(char * out) {
 	/* Genera la instruccion para escribir */
-	Generar("Escribe", out.nombre, "Entera", "");
+	Generar("Escribe", out, "Entera", "");
 }
 
 void Terminar(void) {
@@ -343,10 +331,9 @@ void Terminar(void) {
 	Generar("Detiene", "", "", "");
 }
 
-REG_EXPRESION GenInfijo(REG_EXPRESION e1, char * op, REG_EXPRESION e2){
+void GenInfijo(char * e1, char * op, char * e2, char * result){
 	/* Genera la instruccion para una operacion infija y construye un registro semantico con el
 	resultado */
-	REG_EXPRESION reg;
 	static unsigned int numTemp = 1;
 	char cadTemp[TAMLEX] ="Temp&";
 	char cadNum[TAMLEX];
@@ -357,9 +344,8 @@ REG_EXPRESION GenInfijo(REG_EXPRESION e1, char * op, REG_EXPRESION e2){
 	numTemp++;
 	strcat(cadTemp, cadNum);
 	Colocar(cadTemp);
-	Generar(cadOp, e1.nombre, e2.nombre, cadTemp);
-	strcpy(reg.nombre, cadTemp);
-	return reg;
+	Generar(cadOp, e1, e2, cadTemp);
+	strcpy(result, cadTemp);
 }
 
 /* FUNCIONES AUXILIARES */
