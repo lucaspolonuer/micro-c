@@ -34,7 +34,8 @@
 	---------- Compilador de lenguaje Micro	----------
 */
 
-FILE * in;
+FILE * in; /* Archivo con el programa en micro */
+FILE * out; /* Archivo de salida en codigo de maquina virtual */
 
 typedef enum {
 	INICIO, FIN, LEER, ESCRIBIR, ID, CONSTANTE, PARENIZQUIERDO, PARENDERECHO, PUNTOYCOMA, COMA, ASIGNACION, SUMA, RESTA, FDT, ERRORLEXICO
@@ -99,17 +100,28 @@ int main(int argc, char * argv[]){
 		printf("Debe ingresar el nombre del archivo fuente (en lenguaje Micro) en la linea de comandos\n"); 
 		return -1; 
 	}
-	if ( argc != 2 ) {
+	if ( argc != 3 ) {
 		printf("Numero incorrecto de argumentos\n"); 
 		return -2; 
 	}
-	if ( (in = fopen(argv[1], "r") ) == NULL ) {
+	if ( argv[1][strlen(argv[1])-1] != 'm' || argv[1][strlen(argv[1])-2] != '.' ) {
+		printf("Nombre incorrecto del Archivo Fuente\n"); 
+		return -3; 
+	}
+
+	if ( (in = fopen(argv[1], "r")) == NULL ) {
 		printf("No se pudo abrir archivo fuente\n"); 
-		return -3;
+		return -4;
+	}
+	if ( (out = fopen(argv[2], "w")) == NULL ) {
+		fclose(in);
+		printf("No se pudo abrir archivo de salida\n"); 
+		return -5;
 	}
 
 	Objetivo();
 	fclose(in);
+	fclose(out);
 	return 0;
 }
 
@@ -384,13 +396,15 @@ void Match(TOKEN t) {
 }
 
 void Generar(char * co, char * a, char * b, char * c) {
-	/* Produce la salida de la instruccion para la MV por stdout */
+	/* Produce la salida de la instruccion para la MV por el archivo out */
+	char str_result[200];
 	if(strlen(c) > 0)
-		printf("%s %s%c %s%c %s\n", co, a, ',', b, ',', c);
+		sprintf(str_result, "%s %s%c %s%c %s\n", co, a, ',', b, ',', c);
 	else if(strlen(b) > 0)
-		printf("%s %s%c %s\n", co, a, ',', b);
+		sprintf(str_result, "%s %s%c %s\n", co, a, ',', b);
 	else
-		printf("%s %s\n", co, a);
+		sprintf(str_result, "%s %s\n", co, a);
+	fputs(str_result, out);
 }
 
 /* SCANNER */

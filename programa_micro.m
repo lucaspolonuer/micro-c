@@ -1,4 +1,4 @@
 inicio 
-a := 23;
+a := 24;
 escribir(a, b+2);
 fin

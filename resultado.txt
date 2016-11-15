@@ -1,0 +1,8 @@
+Declara a, Entera
+Almacena 24, a
+Escribe a, Entera
+Declara b, Entera
+Declara Temp&1, Entera
+Sumar b, 2, Temp&1
+Escribe Temp&1, Entera
+Detiene 
