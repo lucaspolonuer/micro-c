@@ -1,4 +1,2 @@
 # micro-c
-el mejor compilador
-asdadsadsasdasdasd
-asdasdasd
+Compilador de lenguaje Micro a código de VM basado en el libro Crafting a Compiler With C - Charles N. Fischer, Richard J. LeBlanc, Jr.
